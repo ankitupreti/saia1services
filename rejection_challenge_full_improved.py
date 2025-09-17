@@ -257,14 +257,16 @@ async def ensure_popup_closed(page, locs: Dict[str, List[str]]):
     """Closes any visible popups or modals to ensure a clean state."""
     logging.debug("Checking for any open popups...")
     # Combine locators from locs file with common fallback selectors
+    modal_xpath_base = "//div[contains(@class, 'modal') or contains(@class, 'dialog') or @role='dialog' or @role='alertdialog']"
     close_selectors = (
-        locs.get('modal_close', []) +
+        locs.get('modal_close', []) +  # User-defined selectors are trusted to be specific
         locs.get('popup_ok', []) +
         [
-            "//button[contains(text(),'Close') or contains(@class,'close')]",
-            "//button[contains(text(),'OK') or contains(text(),'Ok') or contains(text(),'ok')]",
-            "//button[@aria-label='Close' or @aria-label='close']",
-            "//button[normalize-space()='×']"  # Close 'x' button
+            # Scoped selectors to prevent clicking buttons on the main page
+            f"{modal_xpath_base}//button[contains(text(),'Close') or contains(@class,'close')]",
+            f"{modal_xpath_base}//button[contains(text(),'OK') or contains(text(),'Ok') or contains(text(),'ok')]",
+            f"{modal_xpath_base}//button[@aria-label='Close' or @aria-label='close']",
+            f"{modal_xpath_base}//button[normalize-space()='×']"
         ]
     )
 
@@ -630,11 +632,15 @@ async def main():
             logging.error(f"An unexpected error occurred while waiting for the login page: {e}")
 
         if args.manual_login:
-            print('\n>>> MANUAL LOGIN MODE: Pausing for 60 seconds to allow for manual login.')
-            print('>>> Please complete login and navigate to the seller bids page.')
-            await asyncio.sleep(60)
-            print('\n>>> Resuming automation. If the page is ready, please press ENTER to continue...')
+            print("\n" + "="*60)
+            print(">>> MANUAL LOGIN REQUIRED")
+            print(">>> The script is now paused.")
+            print(">>> 1. Please log in to the website in the browser window.")
+            print(">>> 2. Navigate to the main page where the bids are listed.")
+            print(">>> 3. When you are ready, come back to this window and press ENTER.")
+            print("="*60)
             input()
+            logging.info("User has completed manual login. Resuming automation.")
         elif args.username and args.password:
             try:
                 if await page.locator(norm_locator_arg(locs.get('username_input', [''])[0])).count() > 0:
